@@ -1,0 +1,2 @@
+api_image_id = "sha256:REPLACE_WITH_FULL_IMAGE_ID"
+db_password  = "catalogue-local-only-change-me"
