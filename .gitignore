@@ -1,0 +1,31 @@
+# Secrets et variables locales
+.env
+.env.*
+!.env.example
+*.tfvars
+!*.tfvars.example
+*.tfvars.json
+
+# OpenTofu / Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Kubernetes
+kubeconfig*
+
+# Clés privées et certificats locaux
+*.pem
+*.key
+
+# Machines virtuelles et exports volumineux
+*.vdi
+*.vmdk
+*.vhd
+*.ova
+*.ovf
+
+# Dépendances et fichiers locaux
+node_modules/
+.DS_Store
