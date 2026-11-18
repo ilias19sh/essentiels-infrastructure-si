@@ -1,0 +1,25 @@
+---
+- name: Configurer le serveur web
+  hosts: targets
+  become: true
+  tasks:
+    - name: Installer Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Déployer une page de test
+      ansible.builtin.copy:
+        dest: /var/www/html/ansible.html
+        content: "Configuration geree avec Ansible\n"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Activer et démarrer Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
