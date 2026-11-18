@@ -7,7 +7,7 @@ Dépôt des ateliers d'infrastructure et des travaux pratiques. Chaque dossier c
 | Travail | Dossier | État |
 | --- | --- | --- |
 | A1 - MongoDB avec Docker | [`ateliers/a1-mongodb-docker/`](ateliers/a1-mongodb-docker/) | Réalisé |
-| A2 - VM Linux et conteneur web | [`ateliers/a2-vm-linux-conteneur-web/`](ateliers/a2-vm-linux-conteneur-web/) | À réaliser |
+| A2 - VM Linux et conteneur web | [`ateliers/a2-vm-linux-conteneur-web/`](ateliers/a2-vm-linux-conteneur-web/) | Conteneur vérifié avec Colima; VM à créer |
 | A3 - Connecter une VM | [`ateliers/a3-reseau-vm/`](ateliers/a3-reseau-vm/) | À réaliser |
 | A4 - Stockage virtuel | [`ateliers/a4-stockage-virtuel/`](ateliers/a4-stockage-virtuel/) | À réaliser |
 | A5 - Nginx avec Minikube | [`ateliers/a5-nginx-minikube/`](ateliers/a5-nginx-minikube/) | À réaliser |
