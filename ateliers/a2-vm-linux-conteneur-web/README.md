@@ -1,6 +1,6 @@
 # Atelier A2 - VM Linux et conteneur web
 
-Créer une VM Ubuntu Server, lui attribuer des ressources, puis démarrer Nginx dans un conteneur. L'atelier distingue l'adresse du système invité et le port publié par Docker.
+Dans cet atelier, on prépare Ubuntu Server comme système invité, puis on démarre Nginx dans un conteneur. Le but est aussi de distinguer l'adresse de la VM du port publié par Docker.
 
 ## Prérequis
 
@@ -8,9 +8,9 @@ Créer une VM Ubuntu Server, lui attribuer des ressources, puis démarrer Nginx 
 - Ubuntu Server 24.04 LTS. Sur le poste Apple Silicon utilisé pour préparer ce dépôt (`aarch64`), choisir une image ARM64 et vérifier sa prise en charge par l'hyperviseur.
 - Docker Engine dans l'invité pour observer les deux niveaux, ou le moteur Docker de l'hôte pour la variante locale ci-dessous.
 
-## Créer la VM
+## Configuration de la VM
 
-Dans VirtualBox, créer `UbuntuDev` avec les réglages suivants :
+La VM UbuntuDev utilise les réglages suivants dans VirtualBox :
 
 | Réglage | Valeur |
 | --- | --- |
@@ -21,22 +21,22 @@ Dans VirtualBox, créer `UbuntuDev` avec les réglages suivants :
 | Réseau | Adaptateur 1 en NAT |
 | Installation | Activer OpenSSH Server si un accès distant est souhaité |
 
-Après l'installation et le redémarrage, relever les interfaces et la route par défaut depuis la console de la VM :
+Après l'installation et le redémarrage d'Ubuntu Server, on relève les interfaces et la route par défaut depuis la console :
 
 ```sh
 ip -br addr
 ip route
 ```
 
-## Démarrer Nginx dans la VM
+## Lancement de Nginx dans UbuntuDev
 
-Dans UbuntuDev, installer Docker Engine en suivant la documentation officielle Docker pour Ubuntu, puis vérifier le moteur :
+Dans UbuntuDev, Docker Engine s'installe en suivant la documentation officielle Docker pour Ubuntu. On vérifie le moteur :
 
 ```sh
 docker version
 ```
 
-Démarrer le conteneur et vérifier sa configuration Nginx :
+On démarre ensuite le conteneur Nginx et on vérifie sa configuration :
 
 ```sh
 docker run -d --name web-vm -p 8088:80 nginx:1.28-alpine
@@ -44,17 +44,17 @@ docker ps
 docker exec web-vm nginx -t
 ```
 
-Dans la VM, ouvrir `http://127.0.0.1:8088` ou exécuter `curl -fsS http://127.0.0.1:8088`. Le résultat attendu est la page d'accueil Nginx et un test de configuration réussi.
+Depuis la VM, `curl -fsS http://127.0.0.1:8088` doit retourner la page d'accueil Nginx. La commande `nginx -t` confirme que la configuration du serveur est valide.
 
 ## Accès depuis l'hôte
 
-Avec le NAT seul, créer dans VirtualBox une redirection TCP du port hôte `8088` vers le port invité `8088`, puis ouvrir `http://127.0.0.1:8088` depuis l'hôte. Avec un réseau privé hôte ou un pont autorisé, relever l'adresse de la VM avec `ip -br addr` et ouvrir `http://ADRESSE_DE_LA_VM:8088` depuis un poste du même réseau.
+Avec le NAT seul, une redirection TCP VirtualBox relie le port hôte `8088` au port invité `8088`; depuis macOS, on ouvre `http://127.0.0.1:8088`. Avec un réseau privé hôte ou un pont autorisé, on relève l'adresse de la VM avec `ip -br addr` et on ouvre `http://ADRESSE_DE_LA_VM:8088` depuis un poste du même réseau.
 
 L'adresse de la VM est celle de son interface réseau. Le port `8088` est publié par Docker vers le port `80` du conteneur; ce ne sont pas la même adresse ni le même niveau réseau.
 
-## Variante avec Colima sur l'hôte
+## Vérification réalisée avec Colima
 
-Si Docker Engine n'est pas installé dans la VM, le scénario Nginx peut être testé sur le moteur de l'hôte. Cette variante valide le conteneur et la publication de port, mais ne remplace pas la création de la VM.
+Sur ce poste macOS, Docker utilise le contexte Colima. Pour valider le conteneur et sa publication de port sur la boucle locale, on exécute :
 
 ```sh
 docker context show
@@ -64,18 +64,18 @@ docker exec web-vm nginx -t
 curl -fsS http://127.0.0.1:8088
 ```
 
-Le contexte attendu pour ce poste est `colima`. La page Nginx doit être renvoyée par `curl`.
+Le contexte affiché est `colima`, le test de configuration Nginx réussit et `curl` retourne HTTP 200. La publication `127.0.0.1:8088:80` relie le port local 8088 au port 80 du conteneur.
 
 ## Nettoyer
 
-Supprimer le conteneur après les vérifications, que Docker tourne dans la VM ou sur l'hôte :
+Après vérification, on supprime le conteneur. La commande fonctionne dans la VM ou sur l'hôte où il a été lancé :
 
 ```sh
 docker rm -f web-vm
 ```
 
-Éteindre UbuntuDev depuis le système invité quand le travail est terminé.
+Quand la session UbuntuDev est terminée, on arrête la VM depuis le système invité :
 
-## État de réalisation
-
-La variante du conteneur sur Colima est vérifiée. La VM n'a pas été créée sur le poste de préparation : les outils `VBoxManage` et `multipass` n'y sont pas disponibles. Il reste à installer/configurer un hyperviseur compatible avec l'hôte Apple Silicon, créer UbuntuDev avec les réglages ci-dessus, puis consigner son adresse et la vérification d'accès depuis l'hôte.
+```sh
+sudo poweroff
+```
