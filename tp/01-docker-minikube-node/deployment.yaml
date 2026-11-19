@@ -1,18 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tp01-node
-  labels:
-    app: tp01-node
+  name: hello-node
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tp01-node
+      app: hello-node
   template:
     metadata:
       labels:
-        app: tp01-node
+        app: hello-node
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -21,28 +19,16 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: node
-          image: infra-si-tp01-node:1.0
+        - name: app
+          image: hello-node:1.0
           imagePullPolicy: IfNotPresent
-          env:
-            - name: PORT
-              value: "3000"
           ports:
-            - name: http
-              containerPort: 3000
+            - containerPort: 3000
               protocol: TCP
           readinessProbe:
             httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 2
-            periodSeconds: 5
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 5
-            periodSeconds: 10
+              path: /
+              port: 3000
           resources:
             requests:
               cpu: 50m
@@ -62,13 +48,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tp01-node
+  name: hello-node
 spec:
+  type: NodePort
   selector:
-    app: tp01-node
+    app: hello-node
   ports:
-    - name: http
-      port: 3000
-      targetPort: http
-      protocol: TCP
-  type: ClusterIP
+    - port: 8080
+      targetPort: 3000
+      nodePort: 30007

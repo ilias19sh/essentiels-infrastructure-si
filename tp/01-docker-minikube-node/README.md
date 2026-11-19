@@ -1,69 +1,99 @@
 # TP 01 - Docker et Minikube avec Node.js
 
-## Objectif
+## Objectif et prérequis
 
-Construire une image Node.js et exposer le même service HTTP avec Docker puis Kubernetes. L'application répond avec le même texte à la route `/` et expose `/health` pour les contrôles de santé.
+On exécute une application Node.js avec Docker, puis on déploie la même image dans Kubernetes avec Minikube. Node.js est fourni par l'image `node:24-alpine`; il n'a pas besoin d'être installé sur le poste.
 
-## Préparation de l'image
-
-Depuis ce dossier, le Dockerfile part de `node:24-alpine`, copie uniquement `server.js` et lance Node avec l'utilisateur non privilégié `node`. L'application écoute sur `0.0.0.0:3000`, ce qui permet au moteur de conteneur de joindre le processus.
+Les commandes de cet atelier utilisent le profil Minikube `intro-docker` et le moteur Docker de Colima sur macOS.
 
 ```sh
-docker context show
-docker build -t infra-si-tp01-node:1.0 .
+docker version
+minikube version
 ```
 
-Sur ce poste, le moteur Docker est fourni par Colima et le contexte attendu est `colima`.
+## Construire et exécuter l'application
 
-## Vérification avec Docker
+`server.js` utilise le module HTTP intégré à Node.js et écoute sur `0.0.0.0:3000`, donc le processus est accessible depuis le réseau du conteneur. Le Dockerfile copie ce serveur dans l'image et le démarre avec l'utilisateur `node`. Le `.dockerignore` limite le contexte aux deux fichiers nécessaires à la construction.
+
+Depuis ce dossier, construire l'image et lancer le conteneur :
 
 ```sh
-docker run -d --name tp01-node -p 127.0.0.1:8081:3000 infra-si-tp01-node:1.0
-curl -fsS http://127.0.0.1:8081/
-curl -fsS http://127.0.0.1:8081/health
-docker rm -f tp01-node
+docker build -t hello-node:1.0 .
+docker run -d --name hello-node -p 127.0.0.1:8080:3000 hello-node:1.0
+docker ps --filter name=hello-node
+curl -fsS http://127.0.0.1:8080
 ```
 
-La route `/` doit retourner exactement `TP 01 - Service Node.js operationnel`; `/health` retourne `ok`. La commande de suppression nettoie le conteneur après le test.
+La sortie HTTP attendue est :
 
-## Vérification avec Minikube
+```text
+Hello, Docker and Minikube from Node.js!
+```
 
-Démarrer un profil distinct et construire la même image directement dans le cluster afin que Kubernetes la trouve sans registre distant :
+La publication relie le port `8080` de l'hôte au port `3000` du conteneur. Si le port hôte `8080` est occupé, utiliser `8081` à la fois dans `docker run` et dans l'URL de `curl`.
+
+Après la vérification, supprimer le conteneur; l'image reste disponible localement :
 
 ```sh
-minikube start -p infra-si-node --driver=docker
-minikube -p infra-si-node image build -t infra-si-tp01-node:1.0 .
-minikube -p infra-si-node kubectl -- apply -f k8s/app.yaml
-minikube -p infra-si-node kubectl -- rollout status deployment/tp01-node --timeout=120s
-minikube -p infra-si-node kubectl -- get pods,services
+docker rm -f hello-node
 ```
 
-Dans un terminal, ouvrir un tunnel local :
+## Déployer avec Minikube
+
+Démarrer le cluster, charger l'image construite dans le profil et vérifier qu'elle est présente :
 
 ```sh
-minikube -p infra-si-node kubectl -- port-forward service/tp01-node 8082:3000
+minikube start -p intro-docker --driver=docker
+minikube -p intro-docker image load hello-node:1.0
+minikube -p intro-docker image ls
 ```
 
-Dans un autre terminal, comparer la réponse HTTP avec celle de Docker :
+Appliquer [deployment.yaml](deployment.yaml), qui contient le Deployment et le Service :
 
 ```sh
-curl -fsS http://127.0.0.1:8082/
-curl -fsS http://127.0.0.1:8082/health
+minikube -p intro-docker kubectl -- apply -f deployment.yaml
+minikube -p intro-docker kubectl -- rollout status deployment/hello-node
+minikube -p intro-docker kubectl -- get pods,services
 ```
 
-La réponse `/` attendue est identique à celle du conteneur Docker : `TP 01 - Service Node.js operationnel`. Le Deployment utilise le même tag d'image, le même port et la même application; le Service fournit un accès stable au Pod.
+Le Deployment demande une réplique et utilise `imagePullPolicy: IfNotPresent` afin d'utiliser l'image chargée localement. Le Service sélectionne les Pods étiquetés `app: hello-node`, reçoit sur le port `8080` et transmet au port `3000` du Pod. Son NodePort est `30007`.
 
-## Nettoyage
-
-Arrêter `port-forward` avec Ctrl+C, supprimer les ressources et arrêter le profil :
+Pour accéder au service, essayer d'abord l'URL fournie par Minikube :
 
 ```sh
-minikube -p infra-si-node kubectl -- delete -f k8s/app.yaml
-minikube delete -p infra-si-node
+minikube -p intro-docker service hello-node --url
 ```
 
-## Résultats
+Si cette URL n'est pas accessible depuis l'hôte, arrêter le tunnel et utiliser le transfert de port suivant; le laisser actif pendant le test :
 
-La construction Docker a réussi. Le conteneur a retourné `TP 01 - Service Node.js operationnel` sur `/` et `ok` sur `/health`; il a ensuite été supprimé.
+```sh
+minikube -p intro-docker kubectl -- port-forward service/hello-node 8080:8080
+```
 
-Le manifeste Kubernetes reprend le même serveur, l'image, le port et les routes de santé. La procédure Minikube ci-dessus est fournie pour reproduire le test dans Kubernetes; Minikube n'étant pas installé sur le poste, le Pod et la réponse HTTP Kubernetes n'ont pas été vérifiés ici.
+Dans un autre terminal :
+
+```sh
+curl -fsS http://127.0.0.1:8080
+```
+
+Le message attendu est le même que sous Docker : `Hello, Docker and Minikube from Node.js!`.
+
+## Analyse
+
+1. Node.js n'est pas installé sur le poste parce que l'image Docker contient le runtime Node.js et que le conteneur exécute `server.js` avec ce runtime.
+2. Docker rend le service accessible en publiant le port hôte `8080` vers le port `3000` du conteneur. Dans Kubernetes, le Service fournit un point d'accès stable vers les Pods et expose le port `8080`; Minikube fournit l'accès depuis l'hôte.
+3. Le conteneur lancé avec `docker run` a un cycle de vie individuel. Le Deployment maintient l'état désiré et recrée un Pod si celui-ci disparaît.
+4. Après le déploiement, relever `READY` avec `kubectl get pods`, le port `8080` et le NodePort `30007` avec `kubectl get services`, puis noter le message retourné par `curl`.
+
+## Nettoyer
+
+Arrêter `port-forward` ou le tunnel Minikube avec Ctrl+C, supprimer les ressources puis le profil :
+
+```sh
+minikube -p intro-docker kubectl -- delete -f deployment.yaml
+minikube delete -p intro-docker
+```
+
+## Résultats observés
+
+La construction Docker a réussi avec le tag `hello-node:1.0`. Le conteneur a répondu `Hello, Docker and Minikube from Node.js!` sur `http://127.0.0.1:8080`, puis a été supprimé. Minikube n'est pas installé sur le poste; l'état `READY` du Pod et la réponse HTTP Kubernetes restent à relever lors de l'exécution du cluster.
